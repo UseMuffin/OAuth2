@@ -1,0 +1,51 @@
+{
+    "name": "muffin/oauth2",
+    "description": "CakePHP 3 authentication using the league/oauth2-client family",
+    "type": "cakephp-plugin",
+    "keywords": [
+        "cakephp",
+        "muffin",
+        "oauth2",
+        "league",
+        "auth",
+        "authentication"
+    ],
+    "homepage": "https://github.com/usemuffin/oauth2",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jad Bitar",
+            "homepage": "http://jadb.io",
+            "role": "Author"
+        },
+        {
+            "name": "ADmad",
+            "homepage": "https://github.com/ADmad",
+            "role": "Author"
+        },
+        {
+            "name": "Others",
+            "homepage": "https://github.com/usemuffin/oauth2/graphs/contributors"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/usemuffin/oauth2/issues",
+        "source": "https://github.com/usemuffin/oauth2"
+    },
+    "require-dev": {
+        "cakephp/cakephp": "~3.0",
+        "cakephp/cakephp-codesniffer": "2.*",
+        "league/oauth2-github": "^1.0@dev",
+        "phpunit/phpunit": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Muffin\\OAuth2\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Muffin\\OAuth2\\Test\\": "tests"
+        }
+    }
+}
