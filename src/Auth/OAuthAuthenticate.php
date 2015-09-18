@@ -146,7 +146,9 @@ class OAuthAuthenticate extends BaseAuthenticate
             return false;
         }
 
-        $user = $this->_findUser($data[$this->config('fields.username')]);
+        if ($this->config('userModel')) {
+            $result = $this->_findUser($data[$this->config('fields.username')]);
+        }
 
         if (!$user && $this->config('autoRegister')) {
             $event = $this->dispatchEvent('Muffin/OAuth2.newUser', [$provider, $data]);
