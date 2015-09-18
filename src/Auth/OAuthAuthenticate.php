@@ -167,6 +167,7 @@ class OAuthAuthenticate extends BaseAuthenticate
         }
 
         $result += ['token' => $token->getToken()];
+        $this->dispatchEvent('Muffin/OAuth2.afterIdentify', [$result]);
         return $result;
     }
 
