@@ -8,6 +8,7 @@ use Cake\Datasource\EntityInterface;
 use Cake\Event\EventDispatcherTrait;
 use Cake\Network\Request;
 use Cake\Network\Response;
+use Cake\Utility\Hash;
 use League\OAuth2\Client\Provider\AbstractProvider;
 use RuntimeException;
 
@@ -27,7 +28,7 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     public function __construct(ComponentRegistry $registry, array $config = [])
     {
-        $config = $this->normalizeConfig($config ?: Configure::read('Muffin/OAuth2'));
+        $config = $this->normalizeConfig($config);
         parent::__construct($registry, $config);
     }
 
@@ -40,6 +41,8 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     public function normalizeConfig(array $config)
     {
+        $config = Hash::merge(Configure::read('Muffin/OAuth2'), $config);
+
         if (empty($config['providers'])) {
             throw new \Exception('No Oauth providers defined.');
         }
@@ -58,12 +61,14 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     protected function _normalizeConfig(&$config, $key, $parent)
     {
+        unset($parent['providers']);
+
         $defaults = [
             'className' => null,
             'options' => [],
             'collaborators' => [],
             'autoRegister' => false,
-        ] + $this->_defaultConfig;
+        ] + $parent + $this->_defaultConfig;
 
         $config = array_intersect_key($config, $defaults);
         $config += $defaults;
