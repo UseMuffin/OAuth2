@@ -66,7 +66,6 @@ class OAuthAuthenticate extends BaseAuthenticate
             'className' => null,
             'options' => [],
             'collaborators' => [],
-            'autoRegister' => false,
         ] + $parent + $this->_defaultConfig;
 
         $config = array_intersect_key($config, $defaults);
@@ -150,7 +149,7 @@ class OAuthAuthenticate extends BaseAuthenticate
             $result = $this->_findUser($data[$this->config('fields.username')]);
         }
 
-        if (!$user && $this->config('autoRegister')) {
+        if (empty($result)) {
             $event = $this->dispatchEvent('Muffin/OAuth2.newUser', [$provider, $data]);
             if (empty($event->result)) {
                 throw new RuntimeException('
