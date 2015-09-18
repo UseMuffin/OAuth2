@@ -4,7 +4,6 @@ namespace Muffin\OAuth2\Auth;
 use Cake\Auth\BaseAuthenticate;
 use Cake\Controller\ComponentRegistry;
 use Cake\Core\Configure;
-use Cake\Datasource\EntityInterface;
 use Cake\Event\EventDispatcherTrait;
 use Cake\Network\Request;
 use Cake\Network\Response;
@@ -118,7 +117,7 @@ class OAuthAuthenticate extends BaseAuthenticate
      *
      * @param \Cake\Network\Request $request Request object.
      * @return mixed Either false or an array of user information
-     * @throws \RuntimeException If `autoRegister` is true but no listener attached to `OAuth2.newUser`.
+     * @throws \RuntimeException If the `Muffin/OAuth2.newUser` event is missing or returns empty.
      */
     public function getUser(Request $request)
     {
@@ -151,11 +150,11 @@ class OAuthAuthenticate extends BaseAuthenticate
 
         if (!$user && $this->config('autoRegister')) {
             $event = $this->dispatchEvent('Muffin/OAuth2.newUser', [$provider, $data]);
-            if (empty($event->result) || !($event->result instanceof EntityInterface)) {
+            if (empty($event->result)) {
                 throw new RuntimeException('
-                    Missing `OAuth2.newUser` listener which creates a new user record
-                    when none is found for the OAuth-authenticated user and returns
-                    that new entity to the `OAuthAuthenticate` object.
+                    Missing `Muffin/OAuth2.newUser` listener which returns a local representation
+                    of the user. In most cases, it is also used to create a record for the new
+                    OAuth-enticated user.
                 ');
             }
 
