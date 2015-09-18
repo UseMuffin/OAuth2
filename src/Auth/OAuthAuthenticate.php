@@ -159,14 +159,15 @@ class OAuthAuthenticate extends BaseAuthenticate
                 ');
             }
 
-            $user = $event->result;
+            $result = $event->result;
         }
 
-        if (!$user) {
+        if (!$result) {
             return false;
         }
 
-        return $user->toArray() + ['token' => $token->getToken()];
+        $result += ['token' => $token->getToken()];
+        return $result;
     }
 
     /**
