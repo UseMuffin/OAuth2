@@ -16,6 +16,11 @@ class OAuthAuthenticate extends BaseAuthenticate
 
     use EventDispatcherTrait;
 
+    /**
+     * Instance of OAuth2 provider.
+     *
+     * @var \League\OAuth2\Client\Provider\AbstractProvider
+     */
     protected $_provider;
 
     /**
