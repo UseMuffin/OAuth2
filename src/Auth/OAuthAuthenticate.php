@@ -101,7 +101,7 @@ class OAuthAuthenticate extends BaseAuthenticate
     }
 
     /**
-     * No authentication.
+     * Get a user based on information in the request.
      *
      * @param \Cake\Network\Request $request Request object.
      * @param \Cake\Network\Response $response Response object.
@@ -109,7 +109,7 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     public function authenticate(Request $request, Response $response)
     {
-        return false;
+        return $this->getUser($request);
     }
 
     /**
