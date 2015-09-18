@@ -105,7 +105,7 @@ add the new authentication object to it:
 $this->load('Auth', [
 	'authenticate' => [
 		'Form',
-		'OAuth',
+		'Muffin/OAuth2.OAuth',
 	]
 ]);
 ```
