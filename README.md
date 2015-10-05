@@ -38,8 +38,7 @@ composer require "league/oauth2-github:^1.0@dev"
 First, start by defining the providers:
 
 ```php
-// config/bootstrap.php
-
+// either in `config/bootstrap.php`
 Configure::write('Muffin/OAuth2', [
     'providers' => [
         'github' => [
@@ -56,9 +55,21 @@ Configure::write('Muffin/OAuth2', [
         ],
     ],
 ]);
+
+// or in `src/Controller/AppController.php`
+$this->loadComponent('Auth', [
+    'authenticate' => [
+        // ...
+        'Muffin/OAuth2.OAuth' => [
+            'providers' => [
+                // the array from example above
+            ],
+        ],
+    ],
+]);
 ```
 
-Upon successful authorization at the provider, and if the user has no local instance, an event (`Muffin/OAuth2.newUser`)
+Upon successful authorization, and if the user has no local instance, an event (`Muffin/OAuth2.newUser`)
 is triggered. Use it to create a user like so:
 
 ```php
@@ -90,10 +101,11 @@ EventManager::instance()->on('Muffin/OAuth2.afterIdentify', [TableRegistry::get(
 // TokensTable.php
 use Cake\Event\Event;
 use League\OAuth2\Client\Provider\AbstractProvider;
+
 public function createOrUpdate(Event $event, AbstractProvider $provider, array $data)
 {
     // ...
-    return $data; // user data to be used in session
+    return; // void
 }
 ```
 
