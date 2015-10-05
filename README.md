@@ -48,11 +48,14 @@ Configure::write('Muffin/OAuth2', [
             'options' => [
                 'clientId' => 'foo',
                 'clientSecret' => 'bar',
-                // include a random and unique string for better security
-                'state' => someRandomStringGeneration(),
+                // include a random and unique string for better security 
+                // (requires ircmaxell/random-lib)
+                'state' => (new RandomLib\Factory())
+                    ->getLowStrengthGenerator()
+                    ->generateString(mt_rand(16, 32)),
             ],
             'fields' => [
-            	'username' => 'nickname', // maps the auth's username to github's nickname
+            	'username' => 'login', // maps the auth's username to github's nickname
             ],
 		],
 	],
