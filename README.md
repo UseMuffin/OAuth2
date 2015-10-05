@@ -27,6 +27,12 @@ or by manually adding statement shown below to `bootstrap.php`:
 Plugin::load('Muffin/OAuth2');
 ```
 
+Wait, you're not done yet. This plugin will **NOT** require any of the clients. You will have to do it yourself:
+
+```sh
+composer require "league/oauth2-github:^1.0@dev"
+```
+
 ## Usage
 
 First, start by defining the providers:
@@ -35,55 +41,60 @@ First, start by defining the providers:
 // config/bootstrap.php
 
 Configure::write('Muffin/OAuth2', [
-	'providers' => [
-		'github' => [
+    'providers' => [
+        'github' => [
             'className' => 'League\OAuth2\Client\Provider\Github',
             // all options defined here are passed to the provider's constructor
             'options' => [
                 'clientId' => 'foo',
                 'clientSecret' => 'bar',
-                // include a random and unique string for better security
-                'state' => someRandomStringGeneration(),
             ],
-            'fields' => [
-            	'username' => 'nickname', // maps the auth's username to github's nickname
+            'mapFields' => [
+            'username' => 'login', // maps the app's username to github's login
             ],
-		],
-	],
+            // ... add here the usual AuthComponent configuration if needed like fields, etc.
+        ],
+    ],
 ]);
 ```
 
-If you've worked with OAuth before, you are aware that not every time the authenticated user is
-already linked to a local account (on your application). For this reason, it is possible to enable
-automatic registration for select providers by adding this to the provider's configuration:
+Upon successful authorization at the provider, and if the user has no local instance, an event (``)
+is triggered. Use it to create a user like so:
 
 ```php
-// ...
-Configure::write('Muffin/OAuth2', [
-	'providers' => [
-		'github' => [
-			// ...
-            'autoRegister' => true,
-            // ...
-		],
-	],
-]);
-// ...
+// bootstrap.php
+use Cake\Event\Event;
+use Cake\ORM\TableRegistry;
+EventManager::instance()->on('Muffin/OAuth2.afterIdentify', [TableRegistry::get('Users'), 'createNewUser']);
+
+// UsersTable.php
+use Cake\Event\Event;
+use League\OAuth2\Client\Provider\AbstractProvider;
+public function createNewUser(Event $event, AbstractProvider $provider, array $data)
+{
+    $entity = $this->newEntity($data);
+    $this->save($entity);
+    return $entity->toArray(); // user data to be used in session
+}
 ```
 
-Anything you define at the root level of the configuration will be used as default for all
-providers. For example:
+Finally, once token is received, the `` event is triggered. Use this to update your local tokens for example:
 
 ```php
-Configure::write('Muffin/OAuth2', [
-	'providers' => [
-		// ...
-	],
-	'autoRegister' => true
-]);
-```
+// bootstrap.php
+use Cake\Event\Event;
+use Cake\ORM\TableRegistry;
+EventManager::instance()->on('Muffin/OAuth2.afterIdentify', [TableRegistry::get('Tokens'), 'createOrUpdate']);
 
-will effectively enable auto-registration for all providers.
+// TokensTable.php
+use Cake\Event\Event;
+use League\OAuth2\Client\Provider\AbstractProvider;
+public function createOrUpdate(Event $event, AbstractProvider $provider, array $data)
+{
+    // ...
+    return $data; // user data to be used in session
+}
+```
 
 Next up, you need to create a route that will be used by all providers:
 
@@ -91,9 +102,9 @@ Next up, you need to create a route that will be used by all providers:
 // config/routes.php
 
 Router::connect(
-	'/oauth/:provider', 
-	['controller' => 'users', 'action' => 'login'], 
-	['provider' => implode('|', array_keys(Configure::read('Muffin/OAuth2.providers')))]
+    '/oauth/:provider', 
+    ['controller' => 'users', 'action' => 'login'], 
+    ['provider' => implode('|', array_keys(Configure::read('Muffin/OAuth2.providers')))]
 );
 ```
 
@@ -103,40 +114,11 @@ add the new authentication object to it:
 ```php
 // src/Controller/AppController.php
 $this->load('Auth', [
-	'authenticate' => [
-		'Form',
-		'Muffin/OAuth2.OAuth',
-	]
+    'authenticate' => [
+        'Form',
+        'Muffin/OAuth2.OAuth',
+    ]
 ]);
-```
-
-In the case you have enabled `autoRegister`, you will also need to attach a listener to the `Muffin/OAuth2.newUser`
-event which subject's will contain the provider's object along with the authenticated user's profile:
-
-```php
-// src/Model/Table/UsersTable.php
-
-use Cake\Event\Event;
-use League\OAuth2\Client\Provider\AbstractProvider as Provider;
-
-class UsersTable extends Table
-{
-	// ...
-	public function initialize(array $config)
-	{
-		EventManager::instance()->on('Muffin/OAuth2.newUser', [$this, 'createUserFromOAuthProvider']);
-	}
-
-	/**
-	 * @return \App\Model\Entity\User
-	 */
-	public function createUserFromOAuthProvider(Event $event, Provider $provider, array $data)
-	{
-		// ...
-	}
-
-	// ...
-}
 ```
 
 ## Patches & Features
