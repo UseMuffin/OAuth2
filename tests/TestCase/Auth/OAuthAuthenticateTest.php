@@ -72,6 +72,7 @@ class OAuthAuthenticateTest extends TestCase
             'scope' => [],
             'contain' => null,
             'passwordHasher' => 'Default',
+            'finder' => 'all',
             'mapFields' => [],
         ];
         $this->assertEquals($expected, $result['providers']['github']);
