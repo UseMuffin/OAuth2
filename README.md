@@ -50,7 +50,7 @@ Configure::write('Muffin/OAuth2', [
                 'clientSecret' => 'bar',
             ],
             'mapFields' => [
-            'username' => 'login', // maps the app's username to github's login
+                'username' => 'login', // maps the app's username to github's login
             ],
             // ... add here the usual AuthComponent configuration if needed like fields, etc.
         ],
@@ -58,14 +58,14 @@ Configure::write('Muffin/OAuth2', [
 ]);
 ```
 
-Upon successful authorization at the provider, and if the user has no local instance, an event (``)
+Upon successful authorization at the provider, and if the user has no local instance, an event (`Muffin/OAuth2.newUser`)
 is triggered. Use it to create a user like so:
 
 ```php
 // bootstrap.php
 use Cake\Event\Event;
 use Cake\ORM\TableRegistry;
-EventManager::instance()->on('Muffin/OAuth2.afterIdentify', [TableRegistry::get('Users'), 'createNewUser']);
+EventManager::instance()->on('Muffin/OAuth2.newUser', [TableRegistry::get('Users'), 'createNewUser']);
 
 // UsersTable.php
 use Cake\Event\Event;
@@ -78,7 +78,8 @@ public function createNewUser(Event $event, AbstractProvider $provider, array $d
 }
 ```
 
-Finally, once token is received, the `` event is triggered. Use this to update your local tokens for example:
+Finally, once token is received, the `Muffin/OAuth2.afterIdentify` event is triggered. Use this to update your local 
+tokens for example:
 
 ```php
 // bootstrap.php
