@@ -27,6 +27,12 @@ or by manually adding statement shown below to `bootstrap.php`:
 Plugin::load('Muffin/OAuth2');
 ```
 
+Wait, you're not done yet. This plugin will **NOT** require any of the clients. You will have to do it yourself:
+
+```sh
+composer require "league/oauth2-github:^1.0@dev"
+```
+
 ## Usage
 
 First, start by defining the providers:
