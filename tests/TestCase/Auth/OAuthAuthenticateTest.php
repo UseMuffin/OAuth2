@@ -1,6 +1,8 @@
 <?php
 namespace Muffin\OAuth2\Test\TestCase\Auth;
 
+use Cake\Event\Event;
+use Cake\Event\EventManager;
 use Cake\Network\Request;
 use Cake\Network\Response;
 use Cake\TestSuite\TestCase;
@@ -62,7 +64,6 @@ class OAuthAuthenticateTest extends TestCase
                 'state' => $config['options']['state'],
             ],
             'collaborators' => [],
-            'autoRegister' => false,
             'fields' => [
                 'username' => 'username',
                 'password' => 'password',
@@ -71,6 +72,7 @@ class OAuthAuthenticateTest extends TestCase
             'scope' => [],
             'contain' => null,
             'passwordHasher' => 'Default',
+            'mapFields' => [],
         ];
         $this->assertEquals($expected, $result['providers']['github']);
     }
@@ -127,8 +129,15 @@ class OAuthAuthenticateTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testGetUserWithRequiredStateAndAutoRegisterFalse()
+    public function newUser(Event $event, $provider, array $data)
     {
+        $this->assertTrue(true);
+        return $data;
+    }
+
+    public function testGetUser()
+    {
+        EventManager::instance()->on('Muffin/OAuth2.newUser', [$this, 'newUser']);
         $this->oauth->config($this->oauth->normalizeConfig($this->defaultConfig));
         $this->oauth->config($this->oauth->config('providers.github'), false);
 
@@ -170,22 +179,7 @@ class OAuthAuthenticateTest extends TestCase
         $request = new Request(compact('url', 'params', 'query', 'session'));
 
         $result = $this->oauth->getUser($request);
-        $this->assertFalse($result);
-    }
-
-    public function testGetUserWithAutoRegister()
-    {
-        $this->markTestSkipped('Not implemented yet.');
-    }
-
-    public function testGetUserWithAutoRegisterFalse()
-    {
-        $this->markTestSkipped('Not implemented yet.');
-    }
-
-    public function testGetUserWithAutoRegisterButNoListenerAttached()
-    {
-        $this->markTestSkipped('Not implemented yet.');
+        $this->assertEquals(['username' => 'foo', 'token' => null], $result);
     }
 
     public function testUnauthenticated()

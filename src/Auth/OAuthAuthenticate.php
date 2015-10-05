@@ -45,7 +45,7 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     public function normalizeConfig(array $config)
     {
-        $config = Hash::merge(Configure::read('Muffin/OAuth2'), $config);
+        $config = Hash::merge((array)Configure::read('Muffin/OAuth2'), $config);
 
         if (empty($config['providers'])) {
             throw new \Exception('No Oauth providers defined.');
