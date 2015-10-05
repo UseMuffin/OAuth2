@@ -71,6 +71,7 @@ class OAuthAuthenticate extends BaseAuthenticate
             'className' => null,
             'options' => [],
             'collaborators' => [],
+            'mapFields' => [],
         ] + $parent + $this->_defaultConfig;
 
         $config = array_intersect_key($config, $defaults);
@@ -145,7 +146,7 @@ class OAuthAuthenticate extends BaseAuthenticate
         $token = $provider->getAccessToken('authorization_code', ['code' => $request->query('code')]);
 
         try {
-            $data = $provider->getResourceOwner($token)->toArray();
+            $data = $this->_mapData($provider->getResourceOwner($token)->toArray());
         } catch (\Exception $e) {
             return false;
         }
@@ -172,8 +173,28 @@ class OAuthAuthenticate extends BaseAuthenticate
         }
 
         $result += ['token' => $token->getToken()];
-        $this->dispatchEvent('Muffin/OAuth2.afterIdentify', [$result]);
+        $this->dispatchEvent('Muffin/OAuth2.afterIdentify', [$provider, $result]);
         return $result;
+    }
+
+    /**
+     * Maps raw provider's data to local user's data schema.
+     *
+     * @param array $data Raw user data.
+     * @return array
+     */
+    protected function _mapData($data)
+    {
+        if (!$map = $this->config('mapFields')) {
+            return $data;
+        }
+
+        foreach ($data as $dst => $src) {
+            $data[$dst] = $data[$src];
+            unset($data[$src]);
+        }
+
+        return $data;
     }
 
     /**
