@@ -9,6 +9,10 @@ use Cake\Network\Request;
 use Cake\Network\Response;
 use Cake\Utility\Hash;
 use League\OAuth2\Client\Provider\AbstractProvider;
+use Muffin\OAuth2\Auth\Exception\InvalidProviderException;
+use Muffin\OAuth2\Auth\Exception\InvalidSettingsException;
+use Muffin\OAuth2\Auth\Exception\MissingEventListenerException;
+use Muffin\OAuth2\Auth\Exception\MissingProviderConfigurationException;
 use RuntimeException;
 
 class OAuthAuthenticate extends BaseAuthenticate
@@ -48,7 +52,7 @@ class OAuthAuthenticate extends BaseAuthenticate
         $config = Hash::merge((array)Configure::read('Muffin/OAuth2'), $config);
 
         if (empty($config['providers'])) {
-            throw new \Exception('No Oauth providers defined.');
+            throw new MissingProviderConfigurationException();
         }
 
         array_walk($config['providers'], [$this, '_normalizeConfig'], $config);
@@ -94,14 +98,15 @@ class OAuthAuthenticate extends BaseAuthenticate
      * @param mixed $value Value.
      * @param string $key Key.
      * @return void
-     * @throws \Exception
+     * @throws \Muffin\OAuth2\Auth\Exception\InvalidProviderException
+     * @throws \Muffin\OAuth2\Auth\Exception\InvalidSettingsException
      */
     protected function _validateConfig(&$value, $key)
     {
         if ($key === 'className' && !class_exists($value)) {
-            throw new \Exception('Oauth provider does not exist');
-        } elseif (in_array($key, ['options', 'collaborators']) && !is_array($value)) {
-            throw new \Exception('Invalid provider settings for ' . $key);
+            throw new InvalidProviderException([$value]);
+        } elseif (!is_array($value) && in_array($key, ['options', 'collaborators'])) {
+            throw new InvalidSettingsException([$key]);
         }
     }
 
@@ -175,6 +180,7 @@ class OAuthAuthenticate extends BaseAuthenticate
      *
      * @param array $data Mapped user data.
      * @return array
+     * @throws \Muffin\OAuth2\Auth\Exception\MissingEventListenerException
      */
     protected function _touch(array $data)
     {
@@ -182,14 +188,11 @@ class OAuthAuthenticate extends BaseAuthenticate
            return $result;
        }
 
+        $event = 'Muffin/OAuth2.newUser';
         $args = [$this->_provider, $data];
-        $event = $this->dispatchEvent('Muffin/OAuth2.newUser', $args);
+        $event = $this->dispatchEvent($event, $args);
         if (empty($event->result)) {
-            throw new RuntimeException('
-                Missing `Muffin/OAuth2.newUser` listener which returns a local representation
-                of the user. In most cases, it is also used to create a record for the new
-                OAuth-enticated user.
-            ');
+            throw new MissingEventListenerException([$event]);
         }
 
         return $event->result;
@@ -232,7 +235,7 @@ class OAuthAuthenticate extends BaseAuthenticate
             return $data;
         }
 
-        foreach ($data as $dst => $src) {
+        foreach ($map as $dst => $src) {
             $data[$dst] = $data[$src];
             unset($data[$src]);
         }
