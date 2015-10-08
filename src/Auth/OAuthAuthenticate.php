@@ -184,9 +184,9 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     protected function _touch(array $data)
     {
-       if ($result = $this->_findUser($data[$this->config('fields.username')])) {
-           return $result;
-       }
+        if ($result = $this->_findUser($data[$this->config('fields.username')])) {
+            return $result;
+        }
 
         $event = 'Muffin/OAuth2.newUser';
         $args = [$this->_provider, $data];
@@ -201,7 +201,7 @@ class OAuthAuthenticate extends BaseAuthenticate
     /**
      * Validates OAuth2 request.
      *
-     * @param \Cake\Network\Request $request
+     * @param \Cake\Network\Request $request Request object.
      * @return bool
      */
     protected function _validate(Request $request)
