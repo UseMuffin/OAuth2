@@ -9,6 +9,10 @@ use Cake\Network\Request;
 use Cake\Network\Response;
 use Cake\Utility\Hash;
 use League\OAuth2\Client\Provider\AbstractProvider;
+use Muffin\OAuth2\Auth\Exception\InvalidProviderException;
+use Muffin\OAuth2\Auth\Exception\InvalidSettingsException;
+use Muffin\OAuth2\Auth\Exception\MissingEventListenerException;
+use Muffin\OAuth2\Auth\Exception\MissingProviderConfigurationException;
 use RuntimeException;
 
 class OAuthAuthenticate extends BaseAuthenticate
@@ -45,10 +49,10 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     public function normalizeConfig(array $config)
     {
-        $config = Hash::merge(Configure::read('Muffin/OAuth2'), $config);
+        $config = Hash::merge((array)Configure::read('Muffin/OAuth2'), $config);
 
         if (empty($config['providers'])) {
-            throw new \Exception('No Oauth providers defined.');
+            throw new MissingProviderConfigurationException();
         }
 
         array_walk($config['providers'], [$this, '_normalizeConfig'], $config);
@@ -59,19 +63,20 @@ class OAuthAuthenticate extends BaseAuthenticate
      * Callback to loop through config values.
      *
      * @param array $config Configuration.
-     * @param string $key Configuration key.
+     * @param string $alias Provider's alias (key) in configuration.
      * @param array $parent Parent configuration.
      * @return void
      */
-    protected function _normalizeConfig(&$config, $key, $parent)
+    protected function _normalizeConfig(&$config, $alias, $parent)
     {
         unset($parent['providers']);
 
         $defaults = [
-            'className' => null,
-            'options' => [],
-            'collaborators' => [],
-        ] + $parent + $this->_defaultConfig;
+                'className' => null,
+                'options' => [],
+                'collaborators' => [],
+                'mapFields' => [],
+            ] + $parent + $this->_defaultConfig;
 
         $config = array_intersect_key($config, $defaults);
         $config += $defaults;
@@ -93,14 +98,15 @@ class OAuthAuthenticate extends BaseAuthenticate
      * @param mixed $value Value.
      * @param string $key Key.
      * @return void
-     * @throws \Exception
+     * @throws \Muffin\OAuth2\Auth\Exception\InvalidProviderException
+     * @throws \Muffin\OAuth2\Auth\Exception\InvalidSettingsException
      */
     protected function _validateConfig(&$value, $key)
     {
         if ($key === 'className' && !class_exists($value)) {
-            throw new \Exception('Oauth provider does not exist');
-        } elseif (in_array($key, ['options', 'collaborators']) && !is_array($value)) {
-            throw new \Exception('Invalid provider settings for ' . $key);
+            throw new InvalidProviderException([$value]);
+        } elseif (!is_array($value) && in_array($key, ['options', 'collaborators'])) {
+            throw new InvalidSettingsException([$key]);
         }
     }
 
@@ -110,6 +116,7 @@ class OAuthAuthenticate extends BaseAuthenticate
      * @param \Cake\Network\Request $request Request object.
      * @param \Cake\Network\Response $response Response object.
      * @return bool
+     * @throws \RuntimeException If the `Muffin/OAuth2.newUser` event is missing or returns empty.
      */
     public function authenticate(Request $request, Response $response)
     {
@@ -125,7 +132,81 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     public function getUser(Request $request)
     {
-        if (!$provider = $this->provider($request)) {
+        if (!$rawData = $this->_authenticate($request)) {
+            return false;
+        }
+
+        $user = $this->_map($rawData);
+
+        if (!$user || !$this->config('userModel')) {
+            return false;
+        }
+
+        if (!$result = $this->_touch($user)) {
+            return false;
+        }
+
+        $args = [$this->_provider, $result];
+        $this->dispatchEvent('Muffin/OAuth2.afterIdentify', $args);
+        return $result;
+    }
+
+    /**
+     * Authenticates with OAuth2 provider by getting an access token and
+     * retrieving the authorized user's profile data.
+     *
+     * @param \Cake\Network\Request $request Request object.
+     * @return array|bool
+     */
+    protected function _authenticate(Request $request)
+    {
+        if (!$this->_validate($request)) {
+            return false;
+        }
+
+        $provider = $this->provider($request);
+        $code = $request->query('code');
+
+        try {
+            $token = $provider->getAccessToken('authorization_code', compact('code'));
+            return compact('token') + $provider->getResourceOwner($token)->toArray();
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Finds or creates a local user.
+     *
+     * @param array $data Mapped user data.
+     * @return array
+     * @throws \Muffin\OAuth2\Auth\Exception\MissingEventListenerException
+     */
+    protected function _touch(array $data)
+    {
+        if ($result = $this->_findUser($data[$this->config('fields.username')])) {
+            return $result;
+        }
+
+        $event = 'Muffin/OAuth2.newUser';
+        $args = [$this->_provider, $data];
+        $event = $this->dispatchEvent($event, $args);
+        if (empty($event->result)) {
+            throw new MissingEventListenerException([$event]);
+        }
+
+        return $event->result;
+    }
+
+    /**
+     * Validates OAuth2 request.
+     *
+     * @param \Cake\Network\Request $request Request object.
+     * @return bool
+     */
+    protected function _validate(Request $request)
+    {
+        if (!array_key_exists('code', $request->query) || !$this->provider($request)) {
             return false;
         }
 
@@ -133,47 +214,33 @@ class OAuthAuthenticate extends BaseAuthenticate
         $sessionKey = 'oauth2state';
         $state = $request->query('state');
 
-        if (!array_key_exists('code', $request->query)) {
-            return false;
-        }
-
-        if ($this->config('options.state') && (!$state || $state !== $session->read($sessionKey))) {
+        if ($this->config('options.state') &&
+            (!$state || $state !== $session->read($sessionKey))) {
             $session->delete($sessionKey);
             return false;
         }
 
-        $token = $provider->getAccessToken('authorization_code', ['code' => $request->query('code')]);
+        return true;
+    }
 
-        try {
-            $data = $provider->getResourceOwner($token)->toArray();
-        } catch (\Exception $e) {
-            return false;
+    /**
+     * Maps raw provider's user profile data to local user's data schema.
+     *
+     * @param array $data Raw user data.
+     * @return array
+     */
+    protected function _map($data)
+    {
+        if (!$map = $this->config('mapFields')) {
+            return $data;
         }
 
-        if ($this->config('userModel')) {
-            $result = $this->_findUser($data[$this->config('fields.username')]);
+        foreach ($map as $dst => $src) {
+            $data[$dst] = $data[$src];
+            unset($data[$src]);
         }
 
-        if (empty($result)) {
-            $event = $this->dispatchEvent('Muffin/OAuth2.newUser', [$provider, $data]);
-            if (empty($event->result)) {
-                throw new RuntimeException('
-                    Missing `Muffin/OAuth2.newUser` listener which returns a local representation
-                    of the user. In most cases, it is also used to create a record for the new
-                    OAuth-enticated user.
-                ');
-            }
-
-            $result = $event->result;
-        }
-
-        if (!$result) {
-            return false;
-        }
-
-        $result += ['token' => $token->getToken()];
-        $this->dispatchEvent('Muffin/OAuth2.afterIdentify', [$result]);
-        return $result;
+        return $data;
     }
 
     /**
