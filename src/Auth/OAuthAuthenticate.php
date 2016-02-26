@@ -263,7 +263,7 @@ class OAuthAuthenticate extends BaseAuthenticate
             $request->session()->write('oauth2state', $provider->getState());
         }
 
-        $response->location($provider->getAuthorizationUrl());
+        $response->location($provider->getAuthorizationUrl($this->config('options')));
         return $response;
     }
 
