@@ -185,7 +185,7 @@ class OAuthAuthenticate extends BaseAuthenticate
     protected function _touch(array $data)
     {
         if ($result = $this->_findUser($data[$this->config('fields.username')])) {
-            return $result;
+            return array_merge($data, $result);
         }
 
         $event = 'Muffin/OAuth2.newUser';
