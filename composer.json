@@ -47,5 +47,10 @@
         "psr-4": {
             "Muffin\\OAuth2\\Test\\": "tests"
         }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.0.x-dev"
+        }
     }
 }
