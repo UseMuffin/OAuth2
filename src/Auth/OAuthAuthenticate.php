@@ -237,7 +237,7 @@ class OAuthAuthenticate extends BaseAuthenticate
 
         foreach ($map as $dst => $src) {
             $data[$dst] = Hash::get($data, $src);
-            Hash::remove($data, $src);
+            $data = Hash::remove($data, $src);
         }
 
         return $data;
