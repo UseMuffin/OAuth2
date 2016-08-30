@@ -263,7 +263,7 @@ class OAuthAuthenticate extends BaseAuthenticate
             $request->session()->write('oauth2state', $provider->getState());
         }
 
-        $response->location($provider->getAuthorizationUrl($this->config('options')));
+        $response->location($provider->getAuthorizationUrl($this->_queryParams()));
         return $response;
     }
 
@@ -306,5 +306,23 @@ class OAuthAuthenticate extends BaseAuthenticate
 
         $class = $config['className'];
         return new $class($config['options'], $config['collaborators']);
+    }
+    
+    /**
+     * Pass only the custom query params.
+     *
+     * @return array
+     */
+    protected function _queryParams()
+    {
+        $queryParams = $this->config('options');
+
+        unset(
+            $queryParams['clientId'],
+            $queryParams['clientSecret'],
+            $queryParams['redirectUri']
+        );
+
+        return $queryParams;
     }
 }
