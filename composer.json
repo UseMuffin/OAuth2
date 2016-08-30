@@ -36,7 +36,7 @@
         "cakephp/cakephp": "^3.0",
         "cakephp/cakephp-codesniffer": "^2.0",
         "league/oauth2-github": "^0.2",
-        "phpunit/phpunit": "^5.0"
+        "phpunit/phpunit": "*"
     },
     "autoload": {
         "psr-4": {
