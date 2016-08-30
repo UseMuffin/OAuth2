@@ -35,18 +35,22 @@ class OAuthAuthenticateTest extends TestCase
     {
         parent::setUp();
 
-        $this->registry = $this->getMock('Cake\Controller\ComponentRegistry');
-        $this->oauth = $this->getMockForOAuth();
+        $this->registry = $this->getMockBuilder('Cake\Controller\ComponentRegistry')->getMock();
+        $this->oauth = $this->createMockForOAuth();
     }
 
-    public function getMockForOAuth($methods = [])
+    public function createMockForOAuth($methods = [])
     {
         if (empty($methods)) {
             $methods = ['provider', '_findUser'];
         }
 
-        $registry = $this->getMock('Cake\Controller\ComponentRegistry');
-        return $this->getMock($this->class, $methods, [$registry, $this->config]);
+        $registry = $this->getMockBuilder('Cake\Controller\ComponentRegistry')->getMock();
+
+        return $this->getMockBuilder($this->class)
+            ->setMethods($methods)
+            ->setConstructorArgs([$registry, $this->config])
+            ->getMock();
     }
 
     public function invokeMethod($name, $params = null)
@@ -182,7 +186,7 @@ class OAuthAuthenticateTest extends TestCase
     public function testProvider()
     {
         $request = new Request(['url' => '/', 'params' => ['provider' => 'github']]);
-            $oauth = $this->getMockForOAuth(['_getProvider']);
+            $oauth = $this->createMockForOAuth(['_getProvider']);
 
         $oauth->expects($this->once())
             ->method('_getProvider')
@@ -247,7 +251,7 @@ class OAuthAuthenticateTest extends TestCase
 
     public function testGetUserWithMissingOrAlteredQueryState()
     {
-        $provider = $this->getMock('League\OAuth2\Client\Provider\Github', [], [], '', false);
+        $provider = $this->getMockBuilder('League\OAuth2\Client\Provider\Github', [], [], '', false)->getMock();
 
         $this->oauth->expects($this->any())
             ->method('provider')
@@ -271,6 +275,7 @@ class OAuthAuthenticateTest extends TestCase
     public function newUser(Event $event, $provider, array $data)
     {
         $this->assertTrue(true);
+
         return $data;
     }
 
@@ -280,14 +285,18 @@ class OAuthAuthenticateTest extends TestCase
         $this->oauth->config($this->oauth->normalizeConfig($this->config));
         $this->oauth->config($this->oauth->config('providers.github'), false);
 
-        $token = $this->getMock('League\OAuth2\Client\Token\AccessToken', [], [], '', false);
+        $token = $this->getMockBuilder('League\OAuth2\Client\Token\AccessToken')
+            ->disableOriginalConstructor()
+            ->getMock();
 
-        $owner = $this->getMock('League\OAuth2\Client\Provider\GenericResourceOwner', [], [], '', false);
+        $owner = $this->getMockBuilder('League\OAuth2\Client\Provider\GenericResourceOwner')
+            ->disableOriginalConstructor()
+            ->getMock();
         $owner->expects($this->once())
             ->method('toArray')
             ->will($this->returnValue(['login' => 'foo']));
 
-        $provider = $this->getMock('League\OAuth2\Client\Provider\Github', [], [], '', false);
+        $provider = $this->getMockBuilder('League\OAuth2\Client\Provider\Github', [], [], '', false)->getMock();
         $provider->expects($this->once())
             ->method('getAccessToken')
             ->with('authorization_code', ['code' => 'bar'])
@@ -298,7 +307,7 @@ class OAuthAuthenticateTest extends TestCase
             ->will($this->returnValue($owner));
 
 
-        $session = $this->getMock('Cake\Network\Session');
+        $session = $this->getMockBuilder('Cake\Network\Session')->getMock();
         $session->expects($this->once())
             ->method('read')
             ->with('oauth2state')
@@ -345,7 +354,7 @@ class OAuthAuthenticateTest extends TestCase
         $result = $oauth->unauthenticated($request, $response);
         $this->assertNull($result);
 
-        $session = $this->getMock('Cake\Network\Session', ['write']);
+        $session = $this->getMockBuilder('Cake\Network\Session', ['write'])->getMock();
         $session->expects($this->once())
             ->method('write')
             ->with('oauth2state', 'foobar');
