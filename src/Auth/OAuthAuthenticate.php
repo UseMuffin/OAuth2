@@ -8,6 +8,7 @@ use Cake\Event\EventDispatcherTrait;
 use Cake\Network\Request;
 use Cake\Network\Response;
 use Cake\Utility\Hash;
+use Exception;
 use League\OAuth2\Client\Provider\AbstractProvider;
 use Muffin\OAuth2\Auth\Exception\InvalidProviderException;
 use Muffin\OAuth2\Auth\Exception\InvalidSettingsException;
@@ -56,6 +57,7 @@ class OAuthAuthenticate extends BaseAuthenticate
         }
 
         array_walk($config['providers'], [$this, '_normalizeConfig'], $config);
+
         return $config;
     }
 
@@ -148,6 +150,7 @@ class OAuthAuthenticate extends BaseAuthenticate
 
         $args = [$this->_provider, $result];
         $this->dispatchEvent('Muffin/OAuth2.afterIdentify', $args);
+
         return $result;
     }
 
@@ -167,12 +170,15 @@ class OAuthAuthenticate extends BaseAuthenticate
         $provider = $this->provider($request);
         $code = $request->query('code');
 
+        $result = false;
         try {
             $token = $provider->getAccessToken('authorization_code', compact('code'));
-            return compact('token') + $provider->getResourceOwner($token)->toArray();
-        } catch (\Exception $e) {
-            return false;
+            $result = compact('token') + $provider->getResourceOwner($token)->toArray();
+        } catch (Exception $e) {
+            // Silently catch exceptions
         }
+
+        return $result;
     }
 
     /**
@@ -214,13 +220,14 @@ class OAuthAuthenticate extends BaseAuthenticate
         $sessionKey = 'oauth2state';
         $state = $request->query('state');
 
+        $result = true;
         if ($this->config('options.state') &&
             (!$state || $state !== $session->read($sessionKey))) {
             $session->delete($sessionKey);
-            return false;
+            $result = false;
         }
 
-        return true;
+        return $result;
     }
 
     /**
@@ -264,6 +271,7 @@ class OAuthAuthenticate extends BaseAuthenticate
         }
 
         $response->location($provider->getAuthorizationUrl($this->_queryParams()));
+
         return $response;
     }
 
@@ -305,6 +313,7 @@ class OAuthAuthenticate extends BaseAuthenticate
         }
 
         $class = $config['className'];
+
         return new $class($config['options'], $config['collaborators']);
     }
     

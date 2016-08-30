@@ -46,6 +46,7 @@ class OAuthAuthenticateTest extends TestCase
         }
 
         $registry = $this->getMockBuilder('Cake\Controller\ComponentRegistry')->getMock();
+
         return $this->getMockBuilder($this->class)
             ->setMethods($methods)
             ->setConstructorArgs([$registry, $this->config])
@@ -274,6 +275,7 @@ class OAuthAuthenticateTest extends TestCase
     public function newUser(Event $event, $provider, array $data)
     {
         $this->assertTrue(true);
+
         return $data;
     }
 
