@@ -251,7 +251,12 @@ class OAuthAuthenticateTest extends TestCase
 
     public function testGetUserWithMissingOrAlteredQueryState()
     {
-        $provider = $this->getMockBuilder('League\OAuth2\Client\Provider\Github', [], [], '', false)->getMock();
+        $this->oauth->config($this->oauth->normalizeConfig($this->config));
+        $this->oauth->config($this->oauth->config('providers.github'), false);
+
+        $provider = $this->getMockBuilder('League\OAuth2\Client\Provider\Github')
+            ->disableOriginalConstructor()
+            ->getMock();
 
         $this->oauth->expects($this->any())
             ->method('provider')
@@ -296,7 +301,9 @@ class OAuthAuthenticateTest extends TestCase
             ->method('toArray')
             ->will($this->returnValue(['login' => 'foo']));
 
-        $provider = $this->getMockBuilder('League\OAuth2\Client\Provider\Github', [], [], '', false)->getMock();
+        $provider = $this->getMockBuilder('League\OAuth2\Client\Provider\Github')
+            ->disableOriginalConstructor()
+            ->getMock();
         $provider->expects($this->once())
             ->method('getAccessToken')
             ->with('authorization_code', ['code' => 'bar'])
@@ -354,7 +361,9 @@ class OAuthAuthenticateTest extends TestCase
         $result = $oauth->unauthenticated($request, $response);
         $this->assertNull($result);
 
-        $session = $this->getMockBuilder('Cake\Network\Session', ['write'])->getMock();
+        $session = $this->getMockBuilder('Cake\Network\Session')
+            ->setMethods(['write'])
+            ->getMock();
         $session->expects($this->once())
             ->method('write')
             ->with('oauth2state', 'foobar');
