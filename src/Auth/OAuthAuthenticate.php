@@ -197,11 +197,12 @@ class OAuthAuthenticate extends BaseAuthenticate
         $event = 'Muffin/OAuth2.newUser';
         $args = [$this->_provider, $data];
         $event = $this->dispatchEvent($event, $args);
-        if (empty($event->result)) {
+        $result = $event->result;
+        if (empty($result)) {
             throw new MissingEventListenerException([$event]);
         }
 
-        return $event->result;
+        return $result;
     }
 
     /**
