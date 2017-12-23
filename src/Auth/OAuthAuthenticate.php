@@ -175,7 +175,7 @@ class OAuthAuthenticate extends BaseAuthenticate
             $token = $provider->getAccessToken('authorization_code', compact('code'));
             $result = compact('token') + $provider->getResourceOwner($token)->toArray();
         } catch (Exception $e) {
-            // Silently catch exceptions
+            \Cake\Log\Log::debug($e->getMessage());
         }
 
         return $result;
@@ -190,7 +190,12 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     protected function _touch(array $data)
     {
-        if ($result = $this->_findUser($data[$this->config('fields.username')])) {
+        if($this->_provider instanceof \League\OAuth2\Client\Provider\Google)
+            $username = $data['emails'][0]['value'];
+        else
+            $username = $data[$this->config('fields.username')];
+
+        if ($result = $this->_findUser($username)) {
             return array_merge($data, $result);
         }
 
