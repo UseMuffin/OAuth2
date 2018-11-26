@@ -12,6 +12,7 @@ use Muffin\OAuth2\Auth\OAuthAuthenticate;
 class OAuthAuthenticateTest extends TestCase
 {
     public $class = 'Muffin\OAuth2\Auth\OAuthAuthenticate';
+
     public $config = [
         'providers' => [
             'github' => [
