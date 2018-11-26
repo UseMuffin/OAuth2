@@ -1,12 +1,13 @@
 <?php
+
 namespace Muffin\OAuth2\Auth;
 
 use Cake\Auth\BaseAuthenticate;
 use Cake\Controller\ComponentRegistry;
 use Cake\Core\Configure;
 use Cake\Event\EventDispatcherTrait;
-use Cake\Network\Request;
-use Cake\Network\Response;
+use Cake\Http\Response;
+use Cake\Http\ServerRequest;
 use Cake\Utility\Hash;
 use Exception;
 use League\OAuth2\Client\Provider\AbstractProvider;
@@ -14,7 +15,6 @@ use Muffin\OAuth2\Auth\Exception\InvalidProviderException;
 use Muffin\OAuth2\Auth\Exception\InvalidSettingsException;
 use Muffin\OAuth2\Auth\Exception\MissingEventListenerException;
 use Muffin\OAuth2\Auth\Exception\MissingProviderConfigurationException;
-use RuntimeException;
 
 class OAuthAuthenticate extends BaseAuthenticate
 {
@@ -115,12 +115,12 @@ class OAuthAuthenticate extends BaseAuthenticate
     /**
      * Get a user based on information in the request.
      *
-     * @param \Cake\Network\Request $request Request object.
-     * @param \Cake\Network\Response $response Response object.
+     * @param \Cake\Http\ServerRequest $request Request object.
+     * @param \Cake\Http\Response $response Response object.
      * @return bool
      * @throws \RuntimeException If the `Muffin/OAuth2.newUser` event is missing or returns empty.
      */
-    public function authenticate(Request $request, Response $response)
+    public function authenticate(ServerRequest $request, Response $response)
     {
         return $this->getUser($request);
     }
@@ -128,11 +128,11 @@ class OAuthAuthenticate extends BaseAuthenticate
     /**
      * Get a user based on information in the request.
      *
-     * @param \Cake\Network\Request $request Request object.
+     * @param \Cake\Http\ServerRequest $request Request object.
      * @return mixed Either false or an array of user information
      * @throws \RuntimeException If the `Muffin/OAuth2.newUser` event is missing or returns empty.
      */
-    public function getUser(Request $request)
+    public function getUser(ServerRequest $request)
     {
         if (!$rawData = $this->_authenticate($request)) {
             return false;
@@ -140,7 +140,7 @@ class OAuthAuthenticate extends BaseAuthenticate
 
         $user = $this->_map($rawData);
 
-        if (!$user || !$this->config('userModel')) {
+        if (!$user || !$this->getConfig('userModel')) {
             return false;
         }
 
@@ -158,17 +158,17 @@ class OAuthAuthenticate extends BaseAuthenticate
      * Authenticates with OAuth2 provider by getting an access token and
      * retrieving the authorized user's profile data.
      *
-     * @param \Cake\Network\Request $request Request object.
+     * @param \Cake\Http\ServerRequest $request Request object.
      * @return array|bool
      */
-    protected function _authenticate(Request $request)
+    protected function _authenticate(ServerRequest $request)
     {
         if (!$this->_validate($request)) {
             return false;
         }
 
         $provider = $this->provider($request);
-        $code = $request->query('code');
+        $code = $request->getQuery('code');
 
         $result = false;
         try {
@@ -190,7 +190,7 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     protected function _touch(array $data)
     {
-        if ($result = $this->_findUser($data[$this->config('fields.username')])) {
+        if ($result = $this->_findUser($data[$this->getConfig('fields.username')])) {
             return array_merge($data, $result);
         }
 
@@ -207,21 +207,21 @@ class OAuthAuthenticate extends BaseAuthenticate
     /**
      * Validates OAuth2 request.
      *
-     * @param \Cake\Network\Request $request Request object.
+     * @param \Cake\Http\ServerRequest $request Request object.
      * @return bool
      */
-    protected function _validate(Request $request)
+    protected function _validate(ServerRequest $request)
     {
-        if (!array_key_exists('code', $request->query) || !$this->provider($request)) {
+        if (!array_key_exists('code', $request->getQuery()) || !$this->provider($request)) {
             return false;
         }
 
-        $session = $request->session();
+        $session = $request->getSession();
         $sessionKey = 'oauth2state';
-        $state = $request->query('state');
+        $state = $request->getQuery('state');
 
         $result = true;
-        if ($this->config('options.state') &&
+        if ($this->getConfig('options.state') &&
             (!$state || $state !== $session->read($sessionKey))) {
             $session->delete($sessionKey);
             $result = false;
@@ -238,7 +238,7 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     protected function _map($data)
     {
-        if (!$map = $this->config('mapFields')) {
+        if (!$map = $this->getConfig('mapFields')) {
             return $data;
         }
 
@@ -255,35 +255,33 @@ class OAuthAuthenticate extends BaseAuthenticate
      * requested provider's authorization URL to let the user grant access to the
      * application.
      *
-     * @param \Cake\Network\Request $request Request object.
-     * @param \Cake\Network\Response $response Response object.
-     * @return \Cake\Network\Response|null
+     * @param \Cake\Http\ServerRequest $request Request object.
+     * @param \Cake\Http\Response $response Response object.
+     * @return \Cake\Http\Response|null
      */
-    public function unauthenticated(Request $request, Response $response)
+    public function unauthenticated(ServerRequest $request, Response $response)
     {
         $provider = $this->provider($request);
-        if (empty($provider) || !empty($request->query['code'])) {
+        if (empty($provider) || !empty($request->getQuery('code'))) {
             return null;
         }
 
-        if ($this->config('options.state')) {
-            $request->session()->write('oauth2state', $provider->getState());
+        if ($this->getConfig('options.state')) {
+            $request->getSession()->write('oauth2state', $provider->getState());
         }
 
-        $response->location($provider->getAuthorizationUrl($this->_queryParams()));
-
-        return $response;
+        return $response->withLocation($provider->getAuthorizationUrl($this->_queryParams()));
     }
 
     /**
      * Returns the `$request`-ed provider.
      *
-     * @param \Cake\Network\Request $request Current HTTP request.
+     * @param \Cake\Http\ServerRequest $request Current HTTP request.
      * @return \League\Oauth2\Client\Provider\GenericProvider|false
      */
-    public function provider(Request $request)
+    public function provider(ServerRequest $request)
     {
-        if (!$alias = $request->param('provider')) {
+        if (!$alias = $request->getParam('provider')) {
             return false;
         }
 
@@ -302,11 +300,11 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     protected function _getProvider($alias)
     {
-        if (!$config = $this->config('providers.' . $alias)) {
+        if (!$config = $this->getConfig('providers.' . $alias)) {
             return false;
         }
 
-        $this->config($config);
+        $this->setConfig($config, null, true);
 
         if (is_object($config) && $config instanceof AbstractProvider) {
             return $config;
@@ -316,7 +314,7 @@ class OAuthAuthenticate extends BaseAuthenticate
 
         return new $class($config['options'], $config['collaborators']);
     }
-    
+
     /**
      * Pass only the custom query params.
      *
@@ -324,7 +322,7 @@ class OAuthAuthenticate extends BaseAuthenticate
      */
     protected function _queryParams()
     {
-        $queryParams = $this->config('options');
+        $queryParams = $this->getConfig('options');
 
         unset(
             $queryParams['clientId'],
