@@ -1,16 +1,18 @@
 <?php
+
 namespace Muffin\OAuth2\Test\TestCase\Auth;
 
 use Cake\Event\Event;
 use Cake\Event\EventManager;
-use Cake\Network\Request;
-use Cake\Network\Response;
+use Cake\Http\Response;
+use Cake\Http\ServerRequest;
 use Cake\TestSuite\TestCase;
 use Muffin\OAuth2\Auth\OAuthAuthenticate;
 
 class OAuthAuthenticateTest extends TestCase
 {
     public $class = 'Muffin\OAuth2\Auth\OAuthAuthenticate';
+
     public $config = [
         'providers' => [
             'github' => [
@@ -22,7 +24,7 @@ class OAuthAuthenticateTest extends TestCase
                 ],
                 'mapFields' => [
                     'username' => 'login',
-                ]
+                ],
             ],
         ],
     ];
@@ -66,6 +68,7 @@ class OAuthAuthenticateTest extends TestCase
     {
         $this->markTestIncomplete('Not implemented yet.');
     }
+
     public function testNormalizeConfigThrowsException()
     {
         $this->markTestIncomplete('Not implemented yet.');
@@ -89,25 +92,27 @@ class OAuthAuthenticateTest extends TestCase
         return [
             [
                 $config,
-                ['github' => [
-                    'className' => 'League\OAuth2\Client\Provider\Github',
-                    'options' => [
-                        'clientId' => 'foo',
-                        'clientSecret' => 'bar',
-                        'state' => $config['options']['state'],
+                [
+                    'github' => [
+                        'className' => 'League\OAuth2\Client\Provider\Github',
+                        'options' => [
+                            'clientId' => 'foo',
+                            'clientSecret' => 'bar',
+                            'state' => $config['options']['state'],
+                        ],
+                        'collaborators' => [],
+                        'fields' => [
+                            'username' => 'username',
+                            'password' => 'password',
+                        ],
+                        'userModel' => 'Users',
+                        'scope' => [],
+                        'contain' => null,
+                        'passwordHasher' => 'Default',
+                        'finder' => 'all',
+                        'mapFields' => [],
                     ],
-                    'collaborators' => [],
-                    'fields' => [
-                        'username' => 'username',
-                        'password' => 'password',
-                    ],
-                    'userModel' => 'Users',
-                    'scope' => [],
-                    'contain' => null,
-                    'passwordHasher' => 'Default',
-                    'finder' => 'all',
-                    'mapFields' => [],
-                ]]
+                ],
             ],
         ];
     }
@@ -134,12 +139,12 @@ class OAuthAuthenticateTest extends TestCase
     public function testGetUserMissingProviderInRequest()
     {
         $oauth = new OAuthAuthenticate($this->registry, $this->config);
-        $this->assertFalse($oauth->getUser(new Request('/', ['query' => ['code' => 'foo']])));
+        $this->assertFalse($oauth->getUser(new ServerRequest(['url' => '/', 'query' => ['code' => 'foo']])));
     }
 
     public function testGetUserMissingCodeInQuery()
     {
-        $request = new Request(['url' => '/', 'params' => ['provider' => 'github']]);
+        $request = new ServerRequest(['url' => '/', 'params' => ['provider' => 'github']]);
         $result = $this->oauth->getUser($request);
         $this->assertFalse($result);
     }
@@ -171,7 +176,7 @@ class OAuthAuthenticateTest extends TestCase
 
         $this->assertEquals($data, $result);
 
-        $this->oauth->config($this->oauth->config('providers.github'));
+        $this->oauth->setConfig($this->oauth->getConfig('providers.github'));
         $result = $this->invokeMethod('_map', [$data]);
         $expected = ['username' => 'foo', 'more' => 'stuff'];
         $this->assertEquals($expected, $result);
@@ -180,13 +185,13 @@ class OAuthAuthenticateTest extends TestCase
     public function testProviderMissingFromRequest()
     {
         $oauth = new OAuthAuthenticate($this->registry, $this->config);
-        $this->assertFalse($oauth->provider(new Request('/')));
+        $this->assertFalse($oauth->provider(new ServerRequest('/')));
     }
 
     public function testProvider()
     {
-        $request = new Request(['url' => '/', 'params' => ['provider' => 'github']]);
-            $oauth = $this->createMockForOAuth(['_getProvider']);
+        $request = new ServerRequest(['url' => '/', 'params' => ['provider' => 'github']]);
+        $oauth = $this->createMockForOAuth(['_getProvider']);
 
         $oauth->expects($this->once())
             ->method('_getProvider')
@@ -251,8 +256,8 @@ class OAuthAuthenticateTest extends TestCase
 
     public function testGetUserWithMissingOrAlteredQueryState()
     {
-        $this->oauth->config($this->oauth->normalizeConfig($this->config));
-        $this->oauth->config($this->oauth->config('providers.github'), false);
+        $this->oauth->setConfig($this->oauth->normalizeConfig($this->config));
+        $this->oauth->setConfig($this->oauth->getConfig('providers.github'), false);
 
         $provider = $this->getMockBuilder('League\OAuth2\Client\Provider\Github')
             ->disableOriginalConstructor()
@@ -265,13 +270,13 @@ class OAuthAuthenticateTest extends TestCase
         $url = '/';
         $params = ['provider' => 'github'];
         $query = ['code' => 'bar', 'state' => 'foo'];
-        $request = new Request(compact('url', 'params', 'query'));
+        $request = new ServerRequest(compact('url', 'params', 'query'));
 
         $result = $this->oauth->getUser($request);
         $this->assertFalse($result);
 
         $query += ['state' => 'foo'];
-        $request = new Request(compact('url', 'params', 'query'));
+        $request = new ServerRequest(compact('url', 'params', 'query'));
 
         $result = $this->oauth->getUser($request);
         $this->assertFalse($result);
@@ -287,8 +292,8 @@ class OAuthAuthenticateTest extends TestCase
     public function testGetUser()
     {
         EventManager::instance()->on('Muffin/OAuth2.newUser', [$this, 'newUser']);
-        $this->oauth->config($this->oauth->normalizeConfig($this->config));
-        $this->oauth->config($this->oauth->config('providers.github'), false);
+        $this->oauth->setConfig($this->oauth->normalizeConfig($this->config));
+        $this->oauth->setConfig($this->oauth->getConfig('providers.github'), false);
 
         $token = $this->getMockBuilder('League\OAuth2\Client\Token\AccessToken')
             ->disableOriginalConstructor()
@@ -313,8 +318,7 @@ class OAuthAuthenticateTest extends TestCase
             ->with($token)
             ->will($this->returnValue($owner));
 
-
-        $session = $this->getMockBuilder('Cake\Network\Session')->getMock();
+        $session = $this->getMockBuilder('Cake\Http\Session')->getMock();
         $session->expects($this->once())
             ->method('read')
             ->with('oauth2state')
@@ -331,7 +335,7 @@ class OAuthAuthenticateTest extends TestCase
         $url = '/';
         $params = ['provider' => 'github'];
         $query = ['code' => 'bar', 'state' => 'foobar'];
-        $request = new Request(compact('url', 'params', 'query', 'session'));
+        $request = new ServerRequest(compact('url', 'params', 'query', 'session'));
 
         $result = $this->oauth->getUser($request);
         $this->assertEquals(['username' => 'foo', 'token' => $token], $result);
@@ -341,7 +345,7 @@ class OAuthAuthenticateTest extends TestCase
     {
         $oauth = new OAuthAuthenticate($this->registry, $this->config);
 
-        $request = new Request('/');
+        $request = new ServerRequest('/');
         $response = new Response();
         $result = $oauth->unauthenticated($request, $response);
         $this->assertNull($result);
@@ -350,18 +354,18 @@ class OAuthAuthenticateTest extends TestCase
 
         $query = ['code' => 'bar'];
         $params = ['provider' => 'github'];
-        $request = new Request(compact('url', 'params', 'query'));
+        $request = new ServerRequest(compact('url', 'params', 'query'));
         $response = new Response();
         $result = $oauth->unauthenticated($request, $response);
         $this->assertNull($result);
 
         $query = ['code' => 'bar'];
-        $request = new Request(compact('url', 'query'));
+        $request = new ServerRequest(compact('url', 'query'));
         $response = new Response();
         $result = $oauth->unauthenticated($request, $response);
         $this->assertNull($result);
 
-        $session = $this->getMockBuilder('Cake\Network\Session')
+        $session = $this->getMockBuilder('Cake\Http\Session')
             ->setMethods(['write'])
             ->getMock();
         $session->expects($this->once())
@@ -370,19 +374,19 @@ class OAuthAuthenticateTest extends TestCase
 
         $expected = '/https:\/\/github\.com\/login\/oauth\/authorize\?/';
         $params = ['provider' => 'github'];
-        $request = new Request(compact('url', 'params', 'session'));
+        $request = new ServerRequest(compact('url', 'params', 'session'));
         $response = new Response();
         $result = $oauth->unauthenticated($request, $response);
-        $this->assertInstanceOf('Cake\Network\Response', $result);
-        $this->assertRegExp($expected, $result->location());
+        $this->assertInstanceOf('Cake\Http\Response', $result);
+        $this->assertRegExp($expected, $result->getHeaderLine('Location'));
 
-        $oauth->config('options.state', null);
+        $oauth->setConfig('options.state', null);
         $expected = '/https:\/\/github\.com\/login\/oauth\/authorize\?/';
         $params = ['provider' => 'github'];
-        $request = new Request(compact('url', 'params', 'session'));
+        $request = new ServerRequest(compact('url', 'params', 'session'));
         $response = new Response();
         $result = $oauth->unauthenticated($request, $response);
-        $this->assertInstanceOf('Cake\Network\Response', $result);
-        $this->assertRegExp($expected, $result->location());
+        $this->assertInstanceOf('Cake\Http\Response', $result);
+        $this->assertRegExp($expected, $result->getHeaderLine('Location'));
     }
 }

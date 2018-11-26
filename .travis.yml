@@ -1,10 +1,11 @@
 language: php
 
 php:
-  - 5.5
   - 5.6
   - 7.0
   - 7.1
+  - 7.2
+  - 7.3
 
 sudo: false
 
@@ -16,29 +17,35 @@ matrix:
   fast_finish: true
 
   include:
-    - php: 5.5
+    - php: 7.2
       env: PHPCS=1 DEFAULT=0
 
-    - php: 5.5
+    - php: 7.2
       env: COVERALLS=1 DEFAULT=0
 
-  allow_failures:
-    - php: 7.1
+    - php: 5.6
+      env: PREFER_LOWEST=1
 
 before_script:
-  - composer self-update
-  - composer install --prefer-dist --no-interaction
+  # we do only need xdebug on the version where we want code coverage
+  # xdebug is not released for PHP 7.3 so we cannot remove it
+  - if [[ $TRAVIS_PHP_VERSION != 7.2 && $TRAVIS_PHP_VERSION != 7.3 ]]; then phpenv config-rm xdebug.ini; fi
 
-  - sh -c "if [ '$PHPCS' = '1' ]; then composer require cakephp/cakephp-codesniffer:dev-master; fi"
+  - if [[ $PREFER_LOWEST != 1 ]]; then composer update --no-interaction ; fi
+  - if [[ $PREFER_LOWEST == 1 ]]; then composer update --no-interaction --prefer-lowest --prefer-stable; fi
 
-  - sh -c "if [ '$COVERALLS' = '1' ]; then composer require --dev satooshi/php-coveralls:dev-master; fi"
-  - sh -c "if [ '$COVERALLS' = '1' ]; then mkdir -p build/logs; fi"
+  - if [[ $PHPCS == 1 ]]; then composer require cakephp/cakephp-codesniffer:"^3.0"; fi
+
+  - if [[ $COVERALLS == 1 ]]; then composer require --dev php-coveralls/php-coveralls; fi
+  - if [[ $COVERALLS == 1 ]]; then mkdir -p build/logs; fi
 
 script:
-  - sh -c "if [ '$DEFAULT' = '1' ]; then phpunit --stderr; fi"
-  - sh -c "if [ '$PHPCS' = '1' ]; then ./vendor/bin/phpcs -p --extensions=php --standard=vendor/cakephp/cakephp-codesniffer/CakePHP ./src ./tests; fi"
-  - sh -c "if [ '$COVERALLS' = '1' ]; then phpunit --stderr --coverage-clover build/logs/clover.xml; fi"
-  - sh -c "if [ '$COVERALLS' = '1' ]; then php vendor/bin/coveralls -c .coveralls.yml -v; fi"
+  - if [[ i$DEFAULT == 1  ]]; then vendor/bin/phpunit; fi
+  
+  - if [[ $COVERALLS == 1 ]]; then vendor/bin/phpunit --coverage-clover=clover.xml; fi
+  - if [[ $COVERALLS == 1 ]]; then php vendor/bin/coveralls -c .coveralls.yml -v; fi
+
+  - if [[ $PHPCS == 1 ]]; then vendor/bin/phpcs -n -p --extensions=php  --standard=vendor/cakephp/cakephp-codesniffer/CakePHP ./src ./tests; fi
 
 notifications:
   email: false
