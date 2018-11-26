@@ -12,25 +12,20 @@
 Using [Composer][composer]:
 
 ```
-composer require muffin/oauth2:dev-master
+composer require muffin/oauth2
 ```
 
-You then need to load the plugin. You can use the shell command:
+You then need to load the plugin.
 
 ```
 bin/cake plugin load Muffin/OAuth2
 ```
 
-or by manually adding statement shown below to `bootstrap.php`:
-
-```php
-Plugin::load('Muffin/OAuth2');
-```
-
-Wait, you're not done yet. This plugin will **NOT** require any of the clients. You will have to do it yourself:
+Wait, you're not done yet. This plugin will **NOT** require any of the clients.
+You will have to do it yourself. For e.g. if you want to use Github client do:
 
 ```sh
-composer require "league/oauth2-github:^1.0@dev"
+composer require "league/oauth2-github"
 ```
 
 ## Usage
@@ -76,7 +71,10 @@ is triggered. Use it to create a user like so:
 // bootstrap.php
 use Cake\Event\Event;
 use Cake\ORM\TableRegistry;
-EventManager::instance()->on('Muffin/OAuth2.newUser', [TableRegistry::get('Users'), 'createNewUser']);
+EventManager::instance()->on(
+    'Muffin/OAuth2.newUser',
+    [TableRegistry::get('Users'), 'createNewUser']
+);
 
 // UsersTable.php
 use Cake\Event\Event;
@@ -85,18 +83,22 @@ public function createNewUser(Event $event, AbstractProvider $provider, array $d
 {
     $entity = $this->newEntity($data);
     $this->save($entity);
+
     return $entity->toArray(); // user data to be used in session
 }
 ```
 
-Finally, once token is received, the `Muffin/OAuth2.afterIdentify` event is triggered. Use this to update your local 
+Finally, once token is received, the `Muffin/OAuth2.afterIdentify` event is triggered. Use this to update your local
 tokens for example:
 
 ```php
 // bootstrap.php
 use Cake\Event\Event;
 use Cake\ORM\TableRegistry;
-EventManager::instance()->on('Muffin/OAuth2.afterIdentify', [TableRegistry::get('Tokens'), 'createOrUpdate']);
+EventManager::instance()->on(
+    'Muffin/OAuth2.afterIdentify',
+    [TableRegistry::get('Tokens'), 'createOrUpdate']
+);
 
 // TokensTable.php
 use Cake\Event\Event;
@@ -115,8 +117,8 @@ Next up, you need to create a route that will be used by all providers:
 // config/routes.php
 
 Router::connect(
-    '/oauth/:provider', 
-    ['controller' => 'users', 'action' => 'login'], 
+    '/oauth/:provider',
+    ['controller' => 'users', 'action' => 'login'],
     ['provider' => implode('|', array_keys(Configure::read('Muffin/OAuth2.providers')))]
 );
 ```
@@ -126,7 +128,7 @@ add the new authentication object to it:
 
 ```php
 // src/Controller/AppController.php
-$this->load('Auth', [
+$this->loadComponent('Auth', [
     'authenticate' => [
         'Form',
         'Muffin/OAuth2.OAuth',
@@ -151,7 +153,7 @@ http://github.com/usemuffin/oauth2/issues
 
 ## License
 
-Copyright (c) 2015, [Use Muffin][muffin] and licensed under [The MIT License][mit].
+Copyright (c) 2018, [Use Muffin][muffin] and licensed under [The MIT License][mit].
 
 [cakephp]:http://cakephp.org
 [composer]:http://getcomposer.org
